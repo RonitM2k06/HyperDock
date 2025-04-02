@@ -59,6 +59,6 @@ docker run -p 8000:8000 space-cargo
 | GET | `/logs` | Retrieve system logs |
 
 ## **Contributors**
-👨‍💻 **Ronit** – Developer & Architect
+👨‍💻 **Ronit Mongia & Rhythm Shokeen** – Developer & Architect
 
 ---
