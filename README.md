@@ -15,8 +15,8 @@ A FastAPI-based **Space Cargo Management System** designed to optimize cargo pla
 
 ## **Tech Stack**
 - **Backend:** FastAPI, Python, Uvicorn  
-- **Frontend:** React.js (Planned)  
-- **Database:** SQLite / PostgreSQL (TBD)  
+- **Frontend:** HTML, CSS, JavaScript  
+- **Database:** SQLite
 - **Containerization:** Docker  
 
 ## **Setup & Installation**
