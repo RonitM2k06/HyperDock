@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISS Cargo Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="app-title">ISS Cargo Management</div>
+            <div class="user-info">Astronaut Name | <a href="#">Logout</a></div>
+            <div class="date-time">Loading...</div>
+        </header>
+
+        <nav class="dashboard-nav">
+            <ul>
+                <li class="nav-item active" data-section="inventory-overview">Inventory Overview</li>
+                <li class="nav-item" data-section="containers">Containers</li>
+                <li class="nav-item" data-section="items">Items</li>
+                <li class="nav-item" data-section="placement">Placement</li>
+                <li class="nav-item" data-section="search-retrieve">Search & Retrieve</li>
+                <li class="nav-item" data-section="waste-management">Waste Management</li>
+                <li class="nav-item" data-section="time-simulation">Time Simulation</li>
+                <li class="nav-item" data-section="import-export">Import/Export</li>
+                <li class="nav-item" data-section="logs">Logs</li>
+            </ul>
+        </nav>
+
+        <main class="dashboard-main">
+            <section id="inventory-overview" class="dashboard-section active">
+                <h2>Inventory Overview</h2>
+                <div class="inventory-grid-container">
+                    <div class="inventory-grid">
+                        <div class="container-list">
+                            <h3>Containers</h3>
+                            <ul class="container-list-ul">
+                                <li>Loading containers...</li>
+                            </ul>
+                        </div>
+                        <div class="item-summary">
+                            <h3>Item Summary</h3>
+                            <div class="summary-item">
+                                <span class="summary-label">Total Items:</span>
+                                <span class="summary-value">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Consumables:</span>
+                                <span class="summary-value">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Equipment:</span>
+                                <span class="summary-value">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Payload:</span>
+                                <span class="summary-value">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Waste Items:</span>
+                                <span class="summary-value">0</span>
+                            </div>
+                        </div>
+                        <div class="alerts">
+                            <h3>Alerts</h3>
+                            <div class="alert-item">
+                                <span class="alert-label">System Status:</span>
+                                <span class="alert-value">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="containers" class="dashboard-section">
+                <h2>Containers</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="items" class="dashboard-section">
+                <h2>Items</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="placement" class="dashboard-section">
+                <h2>Placement</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="search-retrieve" class="dashboard-section">
+                <h2>Search & Retrieve</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="waste-management" class="dashboard-section">
+                <h2>Waste Management</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="time-simulation" class="dashboard-section">
+                <h2>Time Simulation</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="import-export" class="dashboard-section">
+                <h2>Import/Export</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+
+            <section id="logs" class="dashboard-section">
+                <h2>Logs</h2>
+                <!-- Content will be loaded dynamically -->
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

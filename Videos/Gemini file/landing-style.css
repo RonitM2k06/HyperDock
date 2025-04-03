@@ -1,0 +1,215 @@
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Body Styling */
+body {
+    background-color: #000;
+    color: white;
+    text-align: center;
+}
+
+/* Navbar */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 17px 50px;
+    transition: 0.3s ease-in-out;
+    z-index: 1000; /* Ensures navbar stays on top */
+}
+.logo img {
+    height: 50px;
+}
+
+nav ul {
+    display: flex;
+    list-style: none;
+}
+
+nav ul li {
+    margin: 0 20px;
+}
+
+nav ul li a {
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+}
+
+.cta {
+    background: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+/* About Section */
+#about {
+    position: relative;
+    min-height: 500px;
+    padding: 50px 20px;
+    text-align: center;
+    color: white;
+    z-index: 1;
+    overflow: hidden; /* Ensure the overlay doesn't overflow */
+}
+
+#about::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('assets/nebula.png') no-repeat center center/cover;
+    opacity: 0.50; /* Directly set the opacity of the background image */
+    z-index: -1;
+}
+
+.team-container {
+    position: relative;
+    z-index: 2;
+}
+/* Hero Section */
+#hero {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+#hero {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+}
+
+#bg-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+}
+
+
+/* Background Image with 65% Opacity */
+#hero {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+}
+
+#bg-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: -1;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    color: white;
+    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+
+/* Move Text Lower */
+.hero-content {
+    position: relative;
+    top: 20%; /* Adjusted from default to move it lower */
+}
+
+.hero-content h1 {
+    font-size: 50px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.hero-content p {
+    font-size: 18px;
+    margin: 15px 0;
+}
+
+.buttons {
+    margin-top: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    margin: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.primary {
+    background: #007bff;
+    color: white;
+    border-radius: 5px;
+}
+
+/* Sections */
+section {
+    padding: 50px 20px;
+    text-align: center;
+}
+
+/* Smooth Scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Learn More */
+#learn-more {
+    background-color: #000000; /* Light gray background */
+    padding: 50px 20px;
+    text-align: center;
+}
+#learn-more {
+    background-color: #000000; /* Dark blue background */
+    padding: 50px 20px;
+    text-align: center;
+    color: white; /* Ensure text is readable on dark background */
+}
+#learn-more h2 {
+    color: white; /* White text for headings */
+}
+
+#learn-more p {
+    color: #FFFFFF; /* Light gray text for paragraphs */
+}
+#learn-more {
+    background: linear-gradient(to right, #000000, #000000); /* Gradient from dark blue to darker blue */
+    padding: 50px 20px;
+    text-align: center;
+    color: white;
+}

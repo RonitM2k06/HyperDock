@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyperDock - Space Optimization</title>
+    <link rel="stylesheet" href="landing-style.css">
+    <script defer src="landing-script.js"></script>
+    <style>
+        .team-container {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        .profile-card {
+            position: relative;
+            width: 40vw;
+            height: 40vw;
+            max-width: 500px;
+            max-height: 500px;
+            perspective: 1000px;
+            border: none;
+        }
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+        .profile-card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+            border: none;
+        }
+        .card-front {
+            background: #f4f4f4;
+            border: none;
+        }
+        .card-back {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            transform: rotateY(180deg);
+            border: none;
+        }
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: none;
+            display: block;
+        }
+        .profile-image {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* New Learn More Section */
+        #learn-more {
+            background-color: #f4f4f4;
+            padding: 50px 20px;
+            text-align: center;
+        }
+        #learn-more h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        #learn-more p {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .learn-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1em;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .learn-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <header id="navbar">
+        <div class="logo">
+            <a href="#home"><img src="assets/logo.png" alt="HyperDock Logo"></a>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#mission">Mission</a></li>
+                <li><a href="#technology">Technology</a></li>
+                <li><a href="#about">About Us</a></li>
+                <li><a href="#learn-more">Learn More</a></li> <!-- New Learn More link -->
+            </ul>
+        </nav>
+        <button class="cta" onclick="window.location.href='index.html'">Get Started</button>
+    </header>
+
+    <section id="hero">
+        <video autoplay loop muted playsinline id="bg-video">
+            <source src="assets/spacestationvideo.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="hero-content">
+            <h1>OPTIMIZING SPACE, BEYOND LIMITS</h1>
+            <p>The future of cargo management in space missions.</p>
+            <a href="#about" class="btn primary">Learn More</a>
+        </div>
+    </section>
+    
+
+    <section id="mission">
+        <h2>Our Mission</h2>
+        <p>Revolutionizing space cargo logistics through cutting-edge technology.</p>
+    </section>
+
+    <section id="technology">
+        <h2>Technology</h2>
+        <p>Advanced AI-driven solutions for efficient space cargo placement.</p>
+    </section>
+
+    <section id="about">
+        <h2>About Us</h2>
+        <div class="team-container">
+            <div class="profile-card" onclick="flipCard(this)">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="profile-image">
+                            <img src="assets/Rhythm.png" alt="Rhythm Shokeen">
+                        </div>
+                    </div>
+                    <div class="card-back">
+                        <h2>About Me</h2>
+                        <p>A highly driven and innovative individual with a strong passion for technology, problem-solving, and AI-driven solutions.</p>
+                        <h3>Connect with Me</h3>
+                        <p><a href="https://www.linkedin.com/in/rhythm-shokeen/" target="_blank">LinkedIn</a> | <a href="https://www.instagram.com/imrhythmshokeen/" target="_blank">Instagram</a></p>
+                    </div>
+                </div>
+            </div>
+            <div class="profile-card" onclick="flipCard(this)">
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="profile-image">
+                            <img src="assets/Ronit.png" alt="Ronit Mongia">
+                        </div>
+                    </div>
+                    <div class="card-back">
+                        <h2>About Me</h2>
+                        <p>A dynamic and results-oriented individual with a strong analytical mindset and a passion for innovation.</p>
+                        <h3>Connect with Me</h3>
+                        <p><a href="https://www.linkedin.com/in/ronit-mongia/" target="_blank">LinkedIn</a> | <a href="https://www.instagram.com/ronit_mongia/" target="_blank">Instagram</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- New Learn More Section -->
+    <section id="learn-more">
+        <h2>Learn More About HyperDock</h2>
+        <p>HyperDock is transforming space cargo management by leveraging cutting-edge AI technology and advanced optimization algorithms. The system is designed to handle the complex task of efficiently managing space cargo in various space missions. Our solution not only maximizes storage utilization but also ensures the most optimal placement of items, reducing waste and improving mission efficiency.</p>
+        <p>Our technology utilizes real-time data and predictive algorithms to make intelligent decisions for cargo placement. From autonomous waste management to optimized storage solutions, HyperDock is designed for the future of space exploration.</p>
+        <p>By integrating AI-driven solutions with practical, real-world challenges in space logistics, HyperDock aims to make space missions more efficient, cost-effective, and environmentally sustainable.</p>
+        <div style="text-align: center;">
+            <a href="under-development.html">
+                <button class="explore-btn" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; cursor: pointer; font-size: 16px;">
+                    Explore More
+                </button>
+            </a>
+        </div>
+        
+        
+    </section>    
+
+    <section id="contact">
+        <h2>Get in Touch</h2>
+        <p>Email us at <a href="mailto:inquiry.purplehandgang@gmail.com">inquiry.purplehandgang@gmail.com</a></p>
+    </section>
+
+    <script>
+        function flipCard(card) {
+            card.classList.toggle("flipped");
+        }
+    </script>
+</body>
+</html>
