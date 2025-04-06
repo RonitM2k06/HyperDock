@@ -437,7 +437,6 @@ async function deleteContainer(containerId) {
 
 async function loadItemsSection() {
     const section = document.getElementById('items');
-
     if (!section.querySelector('.item-management')) {
         section.innerHTML = `
             <div class="item-management">
@@ -451,6 +450,8 @@ async function loadItemsSection() {
                                 <th>Priority</th>
                                 <th>Dimensions</th>
                                 <th>Mass</th>
+                                <th>Expiry Date</th>
+                                <th>Usage Limit</th>
                                 <th>Zone</th>
                                 <th>Actions</th>
                             </tr>
@@ -483,10 +484,19 @@ async function loadItemsSection() {
                         </div>
                         <div class="form-group">
                             <label for="mass">Mass (kg):</label>
-                            <input type="number" id="mass" min="0" step="0.01" required></div>
+                            <input type="number" id="mass" min="0" step="0.01" required>
+                        </div>
                         <div class="form-group">
                             <label for="priority">Priority:</label>
                             <input type="number" id="priority" min="1" max="5" value="3" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="expiryDate">Expiry Date:</label>
+                            <input type="date" id="expiryDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="usageLimit">Usage Limit:</label>
+                            <input type="number" id="usageLimit" min="0">
                         </div>
                         <div class="form-group">
                             <label for="preferredZone">Preferred Zone:</label>
@@ -521,6 +531,8 @@ async function displayItems() {
                     <td>${item.priority}</td>
                     <td>${item.width}×${item.depth}×${item.height} cm</td>
                     <td>${item.mass} kg</td>
+                    <td>${item.expiryDate || ''}</td>
+                    <td>${item.usageLimit !== undefined ? item.usageLimit : ''}</td>
                     <td>${item.preferredZone}</td>
                     <td>
                         <button class="delete-btn" data-id="${item.itemId}">Delete</button>
@@ -544,47 +556,66 @@ async function displayItems() {
 
 async function addItem() {
     try {
-        const itemData = {
-            itemId: document.getElementById('itemId').value.trim(),
-            name: document.getElementById('name').value.trim(),
-            width: parseInt(document.getElementById('width').value),
-            depth: parseInt(document.getElementById('depth').value),
-            height: parseInt(document.getElementById('height').value),
-            mass: parseFloat(document.getElementById('mass').value),
-            priority: parseInt(document.getElementById('priority').value),
-            preferredZone: document.getElementById('preferredZone').value.trim()
-        };
+        const itemId = document.getElementById('itemId').value.trim();
+        const name = document.getElementById('name').value.trim();
+        const widthStr = document.getElementById('width').value.trim();
+        const depthStr = document.getElementById('depth').value.trim();
+        const heightStr = document.getElementById('height').value.trim();
+        const massStr = document.getElementById('mass').value.trim();
+        const priorityStr = document.getElementById('priority').value.trim();
+        const expiryDate = document.getElementById('expiryDate').value;
+        const usageLimitStr = document.getElementById('usageLimit').value.trim();
+        const preferredZone = document.getElementById('preferredZone').value.trim();
 
-        // Validate inputs (basic validation)
-        if (!itemData.itemId || !itemData.name || isNaN(itemData.width) || isNaN(itemData.depth) || isNaN(itemData.height) || isNaN(itemData.mass) || isNaN(itemData.priority)) {
-            throw new Error('Please fill all fields with valid data.');
+        // Explicitly parse numerical values
+        const width = parseInt(widthStr, 10);
+        const depth = parseInt(depthStr, 10);
+        const height = parseInt(heightStr, 10);
+        const mass = parseFloat(massStr);
+        const priority = parseInt(priorityStr, 10);
+        const usageLimit = usageLimitStr ? parseInt(usageLimitStr, 10) : null; // Handle empty usage limit
+
+        // Basic validation to check if parsing was successful
+        if (isNaN(width) || isNaN(depth) || isNaN(height) || isNaN(mass) || isNaN(priority)) {
+            showError('Please enter valid numerical values for Width, Depth, Height, Mass, and Priority.');
+            return;
         }
+
+        const itemData = {
+            itemId: itemId,
+            name: name,
+            width: width,
+            depth: depth,
+            height: height,
+            mass: mass,
+            priority: priority,
+            expiryDate: expiryDate,
+            usageLimit: usageLimit,
+            preferredZone: preferredZone
+        };
 
         const response = await fetchWithErrorHandling('http://localhost:8000/api/items', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(itemData)
+            body: JSON.stringify([itemData])
         });
-
         showSuccess('Item added successfully!');
         document.getElementById('itemForm').reset();
         await displayItems();
     } catch (error) {
         console.error('Error adding item:', error);
-        showError(error.message);
+        showError(`Error adding item: ${error.message}`);
     }
 }
 
 async function deleteItem(itemId) {
     try {
         if (!confirm(`Are you sure you want to delete item ${itemId}?`)) return;
-
         const response = await fetchWithErrorHandling(`http://localhost:8000/api/items/${itemId}`, {
             method: 'DELETE'
         });
-
         showSuccess(`Item ${itemId} deleted successfully`);
         await displayItems();
     } catch (error) {
@@ -593,6 +624,27 @@ async function deleteItem(itemId) {
     }
 }
 
+async function fetchWithErrorHandling(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData) {
+                    errorMessage = JSON.stringify(errorData, null, 2);
+                }
+            } catch (jsonError) {
+                console.error("Failed to parse error JSON:", jsonError);
+            }
+            throw new Error(errorMessage);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+    }
+}
 // Placeholder functions for other sections
 async function loadPlacementSection() {
     document.getElementById('placement').innerHTML = `
