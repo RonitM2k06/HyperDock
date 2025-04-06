@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, Query, UploadFile, File, Path
 from fastapi.staticfiles import StaticFiles
+from typing import List
 from sqlalchemy import create_engine, Column, Integer, String, Date, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -227,12 +228,33 @@ def get_containers(db: Session = Depends(get_db)):
         logging.error(f"Error getting containers: {e}")
         raise
 
+@app.delete("/api/items/{item_id}")
+async def delete_item(item_id: str):
+    if item_id in items_db:
+        del items_db[item_id]
+        return {"message": f"Item with ID {item_id} deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail=f"Item with ID {item_id} not found")
+    
+@app.delete("/api/containers/{container_id}", response_model=ApiResponse)
+def delete_container(container_id: str, db: Session = Depends(get_db)):
+    try:
+        db_container = db.query(Container).filter(Container.containerId == container_id).first()
+        if db_container is None:
+            raise HTTPException(status_code=404, detail="Container not found")
+        db.delete(db_container)
+        db.commit()
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        logging.error(f"Error deleting container {container_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete container")
 
 @app.get("/api/items")
 def get_items(db: Session = Depends(get_db)):
     try:
-        items = db.query(Item.itemId, Item.name, Item.priority).all()  # ✅ Fetch only required columns
-        return {"items": [{"itemId": i[0], "name": i[1], "priority": i[2]} for i in items]}
+        items = db.query(Item).all()  # ✅ Fetch all columns of the Item model
+        return {"items": items}  # ✅ FastAPI will automatically serialize the list of Item objects
     except Exception as e:
         logging.error(f"Error getting items: {e}")
         raise
