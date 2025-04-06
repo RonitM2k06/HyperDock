@@ -87,7 +87,7 @@ class ItemSchema(BaseModel):
     mass: float = Field(..., example=0.5)
     priority: int = Field(..., example=1)
     expiryDate: Optional[date] = Field(None, example="2025-12-25")
-    usageLimit: int = Field(..., example=50)
+    usageLimit: Optional[int] = Field(default=None, example=50)  # ✅ This line
     preferredZone: str = Field(..., example="ZoneA")
 
 
