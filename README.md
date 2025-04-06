@@ -25,7 +25,7 @@ A FastAPI-based Space Cargo Management System designed to optimize cargo placeme
 All of the files are present in master branch of the repository 
 ---
 
-## **Frontend Navogation**  
+## **Frontend Navigation**  
 
 Start the application from landing.html and navigate to different sections of the webpage 
 
