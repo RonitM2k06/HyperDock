@@ -80,3 +80,5 @@ docker run -p 8000:8000 rm2k06/space-cargo-manager
 👨‍💻 **Rhythm Shokeen** – System Architect  
 
 ---
+
+**Note:** if your add items doesn't work, dont worry ! reload the page 1-2 times. It will work !
