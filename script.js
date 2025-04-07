@@ -568,13 +568,14 @@ async function addItem() {
         const preferredZone = document.getElementById('preferredZone').value.trim();
 
         // --- Validation ---
-        let width, depth, height, mass, priority, usageLimit; // Declare variables outside if blocks
+        let width, depth, height, mass, priority, usageLimit;
 
-        if (!widthStr || isNaN(widthStr) || parseInt(widthStr, 10) <= 0 || parseInt(widthStr, 10).toString() !== widthStr) {
+        if (!widthStr || isNaN(Number(widthStr)) || !Number.isInteger(Number(widthStr)) || Number(widthStr) <= 0) {
             showError('Please enter a valid positive integer for Width.');
             return;
         }
-        width = parseInt(widthStr, 10);
+        width = Number(widthStr);
+        
 
         if (!depthStr || isNaN(depthStr) || parseInt(depthStr, 10) <= 0 || parseInt(depthStr, 10).toString() !== depthStr) {
             showError('Please enter a valid positive integer for Depth.');
@@ -600,9 +601,7 @@ async function addItem() {
         }
         priority = parseInt(priorityStr, 10);
 
-        usageLimit = usageLimitStr ? parseInt(usageLimitStr, 10) : null; // Handle empty usage limit
-
-        // --- End Validation ---
+        usageLimit = usageLimitStr ? parseInt(usageLimitStr, 10) : null;
 
         const itemData = {
             itemId: itemId,
@@ -617,21 +616,29 @@ async function addItem() {
             preferredZone: preferredZone
         };
 
-        const response = await fetchWithErrorHandling('http://localhost:8000/api/items', {
+        const response = await fetch('http://localhost:8000/api/items', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify([itemData])
-        });
+        });        
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+
         showSuccess('Item added successfully!');
         document.getElementById('itemForm').reset();
         await displayItems();
+
     } catch (error) {
         console.error('Error adding item:', error);
         showError(`Error adding item: ${error.message}`);
     }
 }
+
 
 async function fetchWithErrorHandling(url, options = {}) {
     try {
@@ -654,14 +661,117 @@ async function fetchWithErrorHandling(url, options = {}) {
         throw error;
     }
 }
+
+function displayPlacementResults(data, resultsDiv) {
+    if (data && data.success) {
+        let resultsHTML = '<h4>Placement Results:</h4>';
+        if (data.placements && data.placements.length > 0) {
+            resultsHTML += '<ul>';
+            data.placements.forEach(placement => {
+                resultsHTML += `<li>Item ${placement.itemId} recommended for Container ${placement.containerId}</li>`;
+            });
+            resultsHTML += '</ul>';
+        } else {
+            resultsHTML += '<p>No suitable placements found.</p>';
+        }
+
+        if (data.rearrangements && data.rearrangements.length > 0) {
+            resultsHTML += '<h4>Rearrangements:</h4><ul>';
+            data.rearrangements.forEach(rearrangement => {
+                resultsHTML += `<li>Move ${rearrangement.itemIdFrom} from Container ${rearrangement.containerIdFrom} to Container ${rearrangement.containerIdTo}</li>`;
+            });
+            resultsHTML += '</ul>';
+        }
+
+        resultsDiv.innerHTML = resultsHTML;
+
+    } else {
+        resultsDiv.innerHTML = '<p>Failed to retrieve placement results.</p>';
+    }
+}
+
+function displayPlacementData(data, resultsDiv) {
+    let html = '';
+    if (data.success) {
+        html += `<h4>Item Details:</h4>`;
+        if (data.itemDetails) {
+            html += `
+                <p>Name: ${data.itemDetails.name}</p>
+                <p>Width: ${data.itemDetails.width}</p>
+                <p>Depth: ${data.itemDetails.depth}</p>
+                <p>Height: ${data.itemDetails.height}</p>
+                <p>Mass: ${data.itemDetails.mass}</p>
+                <p>Priority: ${data.itemDetails.priority}</p>
+                <p>Usage Limit: ${data.itemDetails.usageLimit}</p>
+                <p>Preferred Zone: ${data.itemDetails.preferredZone}</p>
+            `;
+        }
+
+        html += `<h4>Placement Recommendations:</h4>`;
+        if (data.recommendations && data.recommendations.length > 0) {
+            html += '<ul>';
+            data.recommendations.forEach(rec => {
+                html += `<li>Container: ${rec.containerId}, Zone: ${rec.zone}, Reason: ${rec.reason}</li>`;
+            });
+            html += '</ul>';
+        } else {
+            html += `<p>${data.message || 'No placement recommendations found.'}</p>`;
+        }
+    } else {
+        html = `<p>Error: ${data.message || 'Failed to get placement data.'}</p>`;
+    }
+    resultsDiv.innerHTML = html;
+}
+
 //  holder functions for other sections
 async function loadPlacementSection() {
-    document.getElementById('placement').innerHTML = `
+    const section = document.getElementById('placement');
+    section.innerHTML = `
         <div class="placement-interface">
             <h3>Placement Recommendations</h3>
+            <div class="placement-input">
+                <label for="placementItemId">Item ID:</label>
+                <input type="text" id="placementItemId" placeholder="Enter Item ID" required><br>
+                <button id="getPlacementBtn">Get Recommendations</button>
+            </div>
             <div class="placement-results"></div>
         </div>
     `;
+
+    const getPlacementBtn = document.getElementById('getPlacementBtn');
+    const placementItemIdInput = document.getElementById('placementItemId');
+    const placementResultsDiv = document.querySelector('#placement .placement-results');
+
+    getPlacementBtn.addEventListener('click', async () => {
+        const itemId = placementItemIdInput.value.trim();
+        if (itemId) {
+            try {
+                showLoading('placement');
+                const response = await fetchWithErrorHandling('http://localhost:8000/api/placement', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ items: [{ itemId: itemId }], containers: [] })
+                });
+
+                if (response) {
+                    const data = await response.json();
+                    displayPlacementData(data, placementResultsDiv);
+                }
+
+            } catch (error) {
+                console.error("Error getting placement recommendations:", error);
+                showError("Failed to get recommendations: " + error.message);
+                placementResultsDiv.textContent = "Error: " + error.message;
+            } finally {
+                hideLoading('placement');
+            }
+        } else {
+            showError("Please enter an Item ID.");
+            placementResultsDiv.textContent = "Please enter an Item ID.";
+        }
+    });
 }
 
 async function loadSearchRetrieveSection() {
@@ -1554,53 +1664,25 @@ async function loadItemData(itemId) {
 }
 
 function populateItemDetails(item) {
-    const itemNameInput = document.getElementById('itemName');
-    const itemWidthInput = document.getElementById('itemWidth');
-    const itemDepthInput = document.getElementById('itemDepth');
-    const itemHeightInput = document.getElementById('itemHeight');
-    const itemMassInput = document.getElementById('itemMass');
-    const itemPriorityInput = document.getElementById('itemPriority');
-    const itemUsageLimitInput = document.getElementById('itemUsageLimit');
-    const itemPreferredZoneInput = document.getElementById('itemPreferredZone');
-
-    itemNameInput.value = item.name || '';
-    itemWidthInput.value = item.width || '';
-    itemDepthInput.value = item.depth || '';
-    itemHeightInput.value = item.height || '';
-    itemMassInput.value = item.mass || '';
-    itemPriorityInput.value = item.priority || '';
-    itemUsageLimitInput.value = item.usageLimit || '';
-    itemPreferredZoneInput.value = item.preferredZone || '';
-
-    const getPlacementBtn = document.getElementById('getPlacementBtn');
-    if (getPlacementBtn) {
-        getPlacementBtn.disabled = false; // Enable the get recommendations button
-    }
+    document.getElementById('itemName').value = item.name || '';
+    document.getElementById('itemWidth').value = item.width || '';
+    document.getElementById('itemDepth').value = item.depth || '';
+    document.getElementById('itemHeight').value = item.height || '';
+    document.getElementById('itemMass').value = item.mass || '';
+    document.getElementById('itemPriority').value = item.priority || '';
+    document.getElementById('itemUsageLimit').value = item.usageLimit || '';
+    document.getElementById('itemPreferredZone').value = item.preferredZone || '';
 }
 
 function clearItemDetails() {
-    const itemNameInput = document.getElementById('itemName');
-    const itemWidthInput = document.getElementById('itemWidth');
-    const itemDepthInput = document.getElementById('itemDepth');
-    const itemHeightInput = document.getElementById('itemHeight');
-    const itemMassInput = document.getElementById('itemMass');
-    const itemPriorityInput = document.getElementById('itemPriority');
-    const itemUsageLimitInput = document.getElementById('itemUsageLimit');
-    const itemPreferredZoneInput = document.getElementById('itemPreferredZone');
-
-    itemNameInput.value = '';
-    itemWidthInput.value = '';
-    itemDepthInput.value = '';
-    itemHeightInput.value = '';
-    itemMassInput.value = '';
-    itemPriorityInput.value = '';
-    itemUsageLimitInput.value = '';
-    itemPreferredZoneInput.value = '';
-
-    const getPlacementBtn = document.getElementById('getPlacementBtn');
-    if (getPlacementBtn) {
-        getPlacementBtn.disabled = true; // Disable the get recommendations button
-    }
+    document.getElementById('itemName').value = '';
+    document.getElementById('itemWidth').value = '';
+    document.getElementById('itemDepth').value = '';
+    document.getElementById('itemHeight').value = '';
+    document.getElementById('itemMass').value = '';
+    document.getElementById('itemPriority').value = '';
+    document.getElementById('itemUsageLimit').value = '';
+    document.getElementById('itemPreferredZone').value = '';
 }
 
 async function loadWasteManagementSection() {
