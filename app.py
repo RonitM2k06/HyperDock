@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Query, UploadFile, File, Path
 from fastapi.staticfiles import StaticFiles
-from typing import List
+from typing import List, Optional
 from sqlalchemy import create_engine, Column, Integer, String, Date, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -53,11 +53,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict origins in production!
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 # Dependency
@@ -277,91 +278,148 @@ def get_items(db: Session = Depends(get_db)):
 @app.get("/api/items/{item_id}")
 def get_item(item_id: str, db: Session = Depends(get_db)):
     try:
+        logging.info(f"Getting item with ID: {item_id}")  # Log the incoming request
         item = db.query(Item).filter(Item.itemId == item_id).first()
         if item:
             return item
+        logging.warning(f"Item with ID {item_id} not found")  # Log a warning
         raise HTTPException(status_code=404, detail="Item not found")
     except Exception as e:
-        logging.error(f"Error getting item: {e}", exc_info=True)
+        logging.error(f"Error getting item: {e}", exc_info=True)  # Log the full traceback
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
 
 @app.post("/api/placement", response_model=PlacementResponse)
 def calculate_placement_recommendations(req: PlacementRequest, db: Session = Depends(get_db)):
     try:
-        logging.info(f"Placement Request received - Items: {req.items}, Containers: {req.containers}")
+        if not req.items:
+            raise HTTPException(status_code=400, detail="Item data is required.")
 
-        placements = []
-        rearrangements = []
+        item = req.items[0]  # Assuming single item for simplicity
+        db_item = db.query(Item).filter(Item.itemId == item.itemId).first()
+        if not db_item:
+            raise HTTPException(status_code=404, detail=f"Item with ID '{item.itemId}' not found.")
 
-        for item in req.items:
-            logging.info(f"  Processing item: {item.itemId}, Preferred Zone: {item.preferredZone}, Dimensions: {item.width}x{item.depth}x{item.height}")
-
-            if not all(dim > 0 for dim in [item.width, item.depth, item.height]):
-                logging.warning(f"Item {item.itemId} has non-positive dimensions, skipping for placement.")
-                continue
-
-            best_container = None
-            best_position = None
-            min_wasted_space = float('inf')
-
-            for container in req.containers:
-                logging.info(f"    Checking container: {container.containerId}, Zone: {container.zone}, Dimensions: {container.width}x{container.depth}x{container.height}")
-
-                if not all(dim > 0 for dim in [container.width, container.depth, container.height]):
-                    logging.warning(f"Container {container.containerId} has non-positive dimensions, skipping.")
-                    continue
-
-                available_space = container.width * container.depth * container.height
-                item_volume = item.width * item.depth * item.height
-
-                logging.info(f"    Item Volume: {item_volume}, Available Space: {available_space}")
-
-                if item_volume <= available_space and item.preferredZone == container.zone:
-                    wasted_space = available_space - item_volume
-                    logging.info(f"    Item fits and zone matches. Wasted space: {wasted_space}")
-                    if wasted_space < min_wasted_space:
-                        min_wasted_space = wasted_space
-                        best_container = container
-                        best_position = {
-                            "startCoordinates": {"width": 0, "depth": 0, "height": 0},
-                            "endCoordinates": {"width": item.width, "depth": item.depth, "height": item.height}
-                        }
-                        logging.info(f"    New best container found: {best_container.containerId}, Min wasted space: {min_wasted_space}")
-                else:
-                    logging.info(f"    Item does not fit or zone does not match.")
-
-            if best_container:
-                placements.append({
-                    "itemId": item.itemId,
-                    "containerId": best_container.containerId,
-                    "position": best_position
-                })
-                logging.info(f"  Placement found for item {item.itemId} in container {best_container.containerId}")
-            else:
-                logging.info(f"  No suitable container found for item {item.itemId}.")
-
-        logging.info(f"Placement Recommendations: {placements}")
+        #  Simplified placement logic (replace with your algorithm)
+        container = db.query(Container).first()
+        recommendations = []
+        if container:
+            recommendations.append({
+                "containerId": container.containerId,
+                "zone": container.zone,
+                "reason": "Suitable dimensions"  #  Replace with your reasoning
+            })
+        else:
+            return {
+                "success": False,
+                "message": "No suitable containers found.",
+                "recommendations": []
+            }
 
         return {
             "success": True,
-            "placements": placements,
-            "rearrangements": rearrangements
+            "itemDetails": ItemSchema.model_validate(db_item),
+            "containerDetails": ContainerSchema.model_validate(container) if container else None,
+            "recommendations": recommendations
+        }
+
+    except HTTPException as http_exc:
+        return {
+            "success": False,
+            "message": http_exc.detail,
+            "recommendations": []
         }
     except Exception as e:
-        logging.error(f"Error getting placement: {e}")
-        raise
+        logging.error(f"Error calculating placement: {e}")
+        return {
+            "success": False,
+            "message": f"An unexpected error occurred: {e}",
+            "recommendations": []
+        }
 
 @app.post("/api/place", response_model=ApiResponse)
 def confirm_placement(req: ConfirmPlacementRequest, db: Session = Depends(get_db)):
     try:
         logging.info(f"Placement Confirmation Request received: {req}")
-        return {"success": True}  # Placeholder - Implement actual confirmation logic
+
+        # 1. Verify that the item and container exist
+        item = db.query(Item).filter(Item.itemId == req.itemId).first()
+        container = db.query(Container).filter(Container.containerId == req.containerId).first()
+
+        if not item:
+            raise HTTPException(status_code=404, detail=f"Item with ID {req.itemId} not found")
+        if not container:
+            raise HTTPException(status_code=404, detail=f"Container with ID {req.containerId} not found")
+
+        # 2.  Check if the position is valid within the container's dimensions
+        if not is_valid_position(req.position, container):
+            raise HTTPException(status_code=400, detail="Invalid position within container")
+
+        # 3.  Update the database to record the item's placement
+        item_placement = ItemPlacement(
+            item_id=item.id,
+            container_id=container.id,
+            start_coordinates=req.position["startCoordinates"],
+            end_coordinates=req.position["endCoordinates"]
+        )
+        db.add(item_placement)
+
+        # 4.  Create a log entry
+        create_log_entry(db,
+                          user_id=req.userId,
+                          action_type="placement",
+                          item_id=req.itemId,
+                          container_id=req.containerId,
+                          details=req.position)
+
+        db.commit()
+        return {"success": True}
+
+    except HTTPException as e:
+        db.rollback()
+        raise e
 
     except Exception as e:
-        logging.error(f"Error confirming placement: {e}")
-        raise
+        db.rollback()
+        logging.error(f"Error confirming placement: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to confirm placement")
+
+
+def is_valid_position(position: dict, container: Container) -> bool:
+    """
+    Helper function to validate if the given position is within the container's bounds.
+    """
+    start = position["startCoordinates"]
+    end = position["endCoordinates"]
+
+    if (
+        start["width"] < 0 or start["width"] > container.width or
+        start["depth"] < 0 or start["depth"] > container.depth or
+        start["height"] < 0 or start["height"] > container.height or
+        end["width"] < 0 or end["width"] > container.width or
+        end["depth"] < 0 or end["depth"] > container.depth or
+        end["height"] < 0 or end["height"] > container.height or
+        start["width"] > end["width"] or
+        start["depth"] > end["depth"] or
+        start["height"] > end["height"]
+    ):
+        return False
+    return True
+
+
+def create_log_entry(db: Session, user_id: str, action_type: str, item_id: str = None, container_id: str = None, details: dict = None):
+    """
+    Helper function to create a log entry in the database.
+    """
+    log_entry = Log(
+        user_id=user_id,
+        action_type=action_type,
+        item_id=item_id,
+        container_id=container_id,
+        details=details
+    )
+    db.add(log_entry)
+    db.commit()  # Commit immediately or within the main route's transaction
+    return log_entry
 
 # API: Item Search and Retrieval
 @app.get("/api/search", response_model=SearchResponse)
@@ -410,12 +468,36 @@ def search_item(itemId: Optional[str] = Query(None), itemName: Optional[str] = Q
 @app.post("/api/retrieve", response_model=ApiResponse)
 def retrieve_item(req: RetrieveRequest, db: Session = Depends(get_db)):
     try:
-        #  Implement your retrieval logic here (e.g., update database, create logs)
-        #  For now, it returns success
+        logging.info(f"Retrieve request received: {req}")
+
+        item = db.query(Item).filter(Item.itemId == req.itemId).first()
+        if not item:
+            raise HTTPException(status_code=404, detail=f"Item with ID {req.itemId} not found")
+
+        #  1. Update usageLimit (if applicable)
+        if item.usageLimit > 0:
+            item.usageLimit -= 1
+            db.commit()
+            logging.info(f"  Usage limit decremented for item {req.itemId}")
+
+        #  2. Create a log entry
+        create_log_entry(
+            db,
+            user_id=req.userId,
+            action_type="retrieval",
+            item_id=req.itemId,
+            details={"timestamp": req.timestamp}
+        )
+        logging.info(f"  Log entry created for item {req.itemId} retrieval")
+
         return {"success": True}
+    except HTTPException as e:
+        db.rollback()
+        raise e
     except Exception as e:
-        logging.error(f"Error retrieving item: {e}")
-        raise
+        db.rollback()
+        logging.error(f"Error retrieving item: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve item")
 
 
 # API: Identify Waste Items
@@ -638,18 +720,26 @@ def import_containers(file: UploadFile = File(...), db: Session = Depends(get_db
 @app.get("/api/export/arrangement")
 def export_arrangement(db: Session = Depends(get_db)):
     try:
-        items = db.query(Item).all()
-        rows = []
+        rows = [["ItemID", "ContainerID", "Start Coordinates", "End Coordinates"]]  # Header row
 
-        for item in items:
-            rows.append([item.itemId, "contA", "(0,0,0)", f"({item.width},{item.depth},{item.height})"])  # Placeholder
+        for item in db.query(Item).all():
+            placement = db.query(ItemPlacement).filter(ItemPlacement.item_id == item.id).first()
+            if placement:
+                container = db.query(Container).filter(Container.id == placement.container_id).first()
+                rows.append([
+                    item.itemId,
+                    container.containerId if container else "N/A",
+                    str(placement.start_coordinates),
+                    str(placement.end_coordinates)
+                ])
+            else:
+                rows.append([item.itemId, "N/A", "N/A", "N/A"])
 
         output = "\n".join([",".join(row) for row in rows])
-        return output
+        return Response(output, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=arrangement.csv"})
     except Exception as e:
-        logging.error(f"Error exporting arrangement: {e}")
+        logging.error(f"Error exporting arrangement: {e}", exc_info=True)
         raise
-
 
 # API: Get Logs
 @app.get("/api/logs")
@@ -662,20 +752,25 @@ def get_logs(
     db: Session = Depends(get_db),
 ):
     try:
-        logs = [
-            {
-                "timestamp": "2025-03-13T10:00:00",
-                "userId": "astronaut1",
-                "actionType": "placement",
-                "itemId": "001",
-                "details": {"fromContainer": "contA", "toContainer": "contB", "reason": "space optimization"},
-            }
-        ]  # Placeholder - Replace with actual logging logic
+        query = db.query(Log)
+        if startDate:
+            start_date = datetime.strptime(startDate, "%Y-%m-%d").date()
+            query = query.filter(Log.timestamp >= start_date)
+        if endDate:
+            end_date = datetime.strptime(endDate, "%Y-%m-%d").date()
+            query = query.filter(Log.timestamp <= end_date)
+        if itemId:
+            query = query.filter(Log.item_id == itemId)
+        if userId:
+            query = query.filter(Log.user_id == userId)
+        if actionType:
+            query = query.filter(Log.action_type == actionType)
+
+        logs: List[Log] = query.all()
         return {"logs": logs}
     except Exception as e:
-        logging.error(f"Error getting logs: {e}")
+        logging.error(f"Error getting logs: {e}", exc_info=True)
         raise
-
 
 # ✅ Test Route
 @app.get("/")
