@@ -102,13 +102,13 @@ class ContainerSchema(BaseModel):
 
 class PlacementRequest(BaseModel):
     items: List[ItemSchema]
-    containers: List[ContainerSchema]
+    containers: Optional[List[ContainerSchema]] = Field(default=None, example=[])
 
 
 class PlacementResponse(BaseModel):
     success: bool
-    placements: List[dict]
-    rearrangements: List[dict]
+    placements: Optional[List[dict]] = Field(default=None, example=[])
+    rearrangements: Optional[List[dict]] = Field(default=None, example=[])
 
 
 class SearchResponse(BaseModel):
@@ -120,16 +120,20 @@ class SearchResponse(BaseModel):
 
 class RetrieveRequest(BaseModel):
     itemId: str = Field(..., example="item001")
-    userId: str = Field(..., example="astronaut1")
-    timestamp: str = Field(..., example="2025-03-15T10:00:00")
+    userId: Optional[str] = Field(None, example="astronaut1")
+    timestamp: Optional[str] = Field(None, example="2025-03-15T10:00:00")
+
 
 
 class PlaceRequest(BaseModel):
     itemId: str = Field(..., example="item001")
-    userId: str = Field(..., example="astronaut1")
-    timestamp: str = Field(..., example="2025-03-15T10:00:00")
+    userId: Optional[str] = Field(None, example="astronaut1")
+    timestamp: Optional[str] = Field(None, example="2025-03-15T10:00:00")
     containerId: str = Field(..., example="container001")
-    position: dict = Field(..., example={"startCoordinates": {"width": 0, "depth": 0, "height": 0}, "endCoordinates": {"width": 10, "depth": 10, "height": 20}})
+    position: dict = Field(..., example={
+        "startCoordinates": {"width": 0, "depth": 0, "height": 0},
+        "endCoordinates": {"width": 10, "depth": 10, "height": 20}
+    })
 
 
 class WasteIdentifyResponse(BaseModel):
@@ -140,19 +144,19 @@ class WasteIdentifyResponse(BaseModel):
 class WasteReturnPlanRequest(BaseModel):
     undockingContainerId: str = Field(..., example="container001")
     undockingDate: str = Field(..., example="2025-04-01")
-    maxWeight: float = Field(..., example=100.0)
+    maxWeight: Optional[float] = Field(None, example=100.0)
 
 
 class WasteReturnPlanResponse(BaseModel):
     success: bool
-    returnPlan: List[dict]
-    retrievalSteps: List[dict]
-    returnManifest: dict
+    returnPlan: Optional[List[dict]] = None
+    retrievalSteps: Optional[List[dict]] = None
+    returnManifest: Optional[dict] = None
 
 
 class CompleteUndockingRequest(BaseModel):
     undockingContainerId: str = Field(..., example="container001")
-    timestamp: str = Field(..., example="2025-04-02T12:00:00")
+    timestamp: Optional[str] = Field(None, example="2025-04-02T12:00:00")
 
 
 class ApiResponse(BaseModel):
@@ -174,7 +178,10 @@ class TimeSimulationResponse(BaseModel):
 class ImportResponse(BaseModel):
     success: bool
     itemsImported: int = Field(..., example=10)
-    errors: List[dict] = Field(..., example=[{"row": {"itemId": "bad_id"}, "message": "Invalid data"}])
+    errors: Optional[List[dict]] = Field(
+        default=None,
+        example=[{"row": {"itemId": "bad_id"}, "message": "Invalid data"}]
+    )
 
 class ConfirmPlacementRequest(BaseModel):
     itemId: str = Field(..., example="item001")
