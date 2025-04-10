@@ -306,42 +306,46 @@ def calculate_placement_recommendations(req: PlacementRequest, db: Session = Dep
         if not db_item:
             raise HTTPException(status_code=404, detail=f"Item with ID '{item.itemId}' not found.")
 
-        #  Simplified placement logic (replace with your algorithm)
         container = db.query(Container).first()
-        recommendations = []
-        if container:
-            recommendations.append({
-                "containerId": container.containerId,
-                "zone": container.zone,
-                "reason": "Suitable dimensions"  #  Replace with your reasoning
-            })
-        else:
-            return {
-                "success": False,
-                "message": "No suitable containers found.",
-                "recommendations": []
-            }
+        if not container:
+            return PlacementResponse(
+                success=False,
+                placements=[],
+                rearrangements=[]
+            )
 
-        return {
-            "success": True,
-            "itemDetails": ItemSchema.model_validate(db_item),
-            "containerDetails": ContainerSchema.model_validate(container) if container else None,
-            "recommendations": recommendations
+        placement = {
+            "itemId": item.itemId,
+            "containerId": container.containerId,
+            "position": {
+                "startCoordinates": {"width": 0, "depth": 0, "height": 0},
+                "endCoordinates": {
+                    "width": item.width,
+                    "depth": item.depth,
+                    "height": item.height
+                }
+            }
         }
+
+        return PlacementResponse(
+            success=True,
+            placements=[placement],
+            rearrangements=[]
+        )
 
     except HTTPException as http_exc:
-        return {
-            "success": False,
-            "message": http_exc.detail,
-            "recommendations": []
-        }
+        return PlacementResponse(
+            success=False,
+            placements=[],
+            rearrangements=[]
+        )
     except Exception as e:
         logging.error(f"Error calculating placement: {e}")
-        return {
-            "success": False,
-            "message": f"An unexpected error occurred: {e}",
-            "recommendations": []
-        }
+        return PlacementResponse(
+            success=False,
+            placements=[],
+            rearrangements=[]
+        )
 
 @app.post("/api/place", response_model=ApiResponse)
 def confirm_placement(req: ConfirmPlacementRequest, db: Session = Depends(get_db)):
