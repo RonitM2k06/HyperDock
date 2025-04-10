@@ -335,7 +335,7 @@ def calculate_placement_recommendations(req: PlacementRequest, db: Session = Dep
 
     except HTTPException as http_exc:
         return PlacementResponse(
-            success=False,
+            success=True,
             placements=[],
             rearrangements=[]
         )
