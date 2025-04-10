@@ -206,37 +206,79 @@ class LogEntry(BaseModel):
 
 
 from fastapi import HTTPException
-
+from fastapi.responses import JSONResponse
 
 @app.post("/api/containers")
 def add_containers(containers: List[ContainerSchema], db: Session = Depends(get_db)):
     try:
+        added_containers = []
+
         for container in containers:
             existing = db.query(Container).filter(Container.containerId == container.containerId).first()
             if existing:
-                raise HTTPException(status_code=400, detail=f"Container {container.containerId} already exists.")
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "message": f"Container {container.containerId} already exists.",
+                        "containersAdded": 0
+                    }
+                )
 
             db_container = Container(**container.dict())
             db.add(db_container)
+            added_containers.append(container.containerId)
+
         db.commit()
-        return {"message": "Containers added successfully", "total": len(containers)}
+
+        return {
+            "success": True,
+            "message": "Containers added successfully",
+            "containersAdded": len(added_containers),
+            "containerIds": added_containers
+        }
+
     except Exception as e:
         logging.error(f"Error adding containers: {e}")
-        raise  # Re-raise the exception to be handled by FastAPI's default error handler
+        return {
+            "success": False,
+            "message": "An unexpected error occurred while adding containers.",
+            "containersAdded": 0,
+            "containerIds": []
+        }
 
 
 # API: Add New Cargo Items
-@app.post("/api/items")
-def add_items(items: List[ItemSchema], db: Session = Depends(get_db)):
-    try:
-        for item in items:
-            db_item = Item(**item.dict())
-            db.add(db_item)
-        db.commit()
-        return {"message": "Items added successfully", "total": len(items)}
-    except Exception as e:
-        logging.error(f"Error adding items: {e}")
-        raise
+    @app.post("/api/items")
+    def add_items(items: List[ItemSchema], db: Session = Depends(get_db)):
+        try:
+            added_items = []
+
+            for item in items:
+                db_item = Item(**item.dict())
+                db.add(db_item)
+                added_items.append(item.itemId)
+
+            db.commit()
+
+            return {
+                "success": True,
+                "message": "Items added successfully",
+                "itemsAdded": len(added_items),
+                "itemIds": added_items
+            }
+
+        except Exception as e:
+            logging.error(f"Error adding items: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "message": "An error occurred while adding items.",
+                    "itemsAdded": 0,
+                    "itemIds": []
+                }
+            )
 
 
 # API: Get All Containers
@@ -244,55 +286,106 @@ def add_items(items: List[ItemSchema], db: Session = Depends(get_db)):
 def get_containers(db: Session = Depends(get_db)):
     try:
         containers = db.query(Container).all()
-        return {"containers": containers}
+        container_data = [ContainerSchema.model_validate(c).dict() for c in containers]
+
+        return {
+            "success": True,
+            "containers": container_data
+        }
+
     except Exception as e:
         logging.error(f"Error getting containers: {e}")
-        raise
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Failed to fetch containers.",
+                "containers": []
+            }
+        )
+
 
 @app.delete("/api/items/{item_id}")
-async def delete_item(item_id: str):
-    if item_id in items_db:
-        del items_db[item_id]
-        return {"message": f"Item with ID {item_id} deleted successfully"}
-    else:
-        raise HTTPException(status_code=404, detail=f"Item with ID {item_id} not found")
+async def delete_item(item_id: str, db: Session = Depends(get_db)):
+    try:
+        item = db.query(Item).filter(Item.itemId == item_id).first()
+        if not item:
+            return {
+                "success": False,
+                "message": f"Item with ID '{item_id}' not found"
+            }
+
+        db.delete(item)
+        db.commit()
+        return {
+            "success": True,
+            "message": f"Item with ID '{item_id}' deleted successfully"
+        }
+
+    except Exception as e:
+        logging.error(f"Error deleting item '{item_id}': {e}")
+        return {
+            "success": False,
+            "message": f"An error occurred while deleting item '{item_id}'"
+        }
+
     
 @app.delete("/api/containers/{container_id}", response_model=ApiResponse)
 def delete_container(container_id: str, db: Session = Depends(get_db)):
     try:
         db_container = db.query(Container).filter(Container.containerId == container_id).first()
-        if db_container is None:
-            raise HTTPException(status_code=404, detail="Container not found")
+        if not db_container:
+            return {
+                "success": False,
+                "message": f"Container with ID '{container_id}' not found"
+            }
+
         db.delete(db_container)
         db.commit()
-        return {"success": True}
+        return {
+            "success": True,
+            "message": f"Container with ID '{container_id}' deleted successfully"
+        }
+
     except Exception as e:
         db.rollback()
-        logging.error(f"Error deleting container {container_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete container")
+        logging.error(f"Error deleting container '{container_id}': {e}")
+        return {
+            "success": False,
+            "message": f"Failed to delete container '{container_id}' due to internal error"
+        }
 
 @app.get("/api/items")
 def get_items(db: Session = Depends(get_db)):
     try:
-        items = db.query(Item).all()  # ✅ Fetch all columns of the Item model
-        return {"items": items}  # ✅ FastAPI will automatically serialize the list of Item objects
+        items = db.query(Item).all()
+        item_list = [ItemSchema.model_validate(item).model_dump() for item in items]
+        return {
+            "success": True,
+            "items": item_list,
+            "total": len(item_list)
+        }
     except Exception as e:
         logging.error(f"Error getting items: {e}")
-        raise
-
+        return {
+            "success": False,
+            "message": "Failed to fetch items due to internal error",
+            "items": [],
+            "total": 0
+        }
 
 # API: Get a Specific Item by ID
-@app.get("/api/items/{item_id}")
+@app.get("/api/items/{item_id}", response_model=ItemSchema)
 def get_item(item_id: str, db: Session = Depends(get_db)):
     try:
-        logging.info(f"Getting item with ID: {item_id}")  # Log the incoming request
+        logging.info(f"Getting item with ID: {item_id}")
         item = db.query(Item).filter(Item.itemId == item_id).first()
         if item:
-            return item
-        logging.warning(f"Item with ID {item_id} not found")  # Log a warning
+            return ItemSchema.model_validate(item)
+        logging.warning(f"Item with ID {item_id} not found")
         raise HTTPException(status_code=404, detail="Item not found")
     except Exception as e:
-        logging.error(f"Error getting item: {e}", exc_info=True)  # Log the full traceback
+        logging.error(f"Error getting item: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/placement", response_model=PlacementResponse)
@@ -352,7 +445,10 @@ def confirm_placement(req: ConfirmPlacementRequest, db: Session = Depends(get_db
     try:
         logging.info(f"Placement Confirmation Request received: {req}")
 
-        # 1. Verify that the item and container exist
+        # Validate presence of required fields
+        if not req.itemId or not req.containerId or not req.position:
+            raise HTTPException(status_code=400, detail="Missing required placement fields.")
+
         item = db.query(Item).filter(Item.itemId == req.itemId).first()
         container = db.query(Container).filter(Container.containerId == req.containerId).first()
 
@@ -361,26 +457,38 @@ def confirm_placement(req: ConfirmPlacementRequest, db: Session = Depends(get_db
         if not container:
             raise HTTPException(status_code=404, detail=f"Container with ID {req.containerId} not found")
 
-        # 2.  Check if the position is valid within the container's dimensions
+        # Defensive check for coordinates
+        try:
+            start = req.position["startCoordinates"]
+            end = req.position["endCoordinates"]
+            for dim in ["width", "depth", "height"]:
+                if dim not in start or dim not in end:
+                    raise ValueError(f"Missing coordinate field: {dim}")
+        except Exception as coord_err:
+            raise HTTPException(status_code=400, detail=f"Invalid position format: {coord_err}")
+
+        # Validate that placement fits inside the container
         if not is_valid_position(req.position, container):
             raise HTTPException(status_code=400, detail="Invalid position within container")
 
-        # 3.  Update the database to record the item's placement
+        # Record placement
         item_placement = ItemPlacement(
             item_id=item.id,
             container_id=container.id,
-            start_coordinates=req.position["startCoordinates"],
-            end_coordinates=req.position["endCoordinates"]
+            start_coordinates=start,
+            end_coordinates=end
         )
         db.add(item_placement)
 
-        # 4.  Create a log entry
-        create_log_entry(db,
-                          user_id=req.userId,
-                          action_type="placement",
-                          item_id=req.itemId,
-                          container_id=req.containerId,
-                          details=req.position)
+        # Create log
+        create_log_entry(
+            db,
+            user_id=req.userId,
+            action_type="placement",
+            item_id=req.itemId,
+            container_id=req.containerId,
+            details=req.position
+        )
 
         db.commit()
         return {"success": True}
@@ -417,62 +525,80 @@ def is_valid_position(position: dict, container: Container) -> bool:
     return True
 
 
-def create_log_entry(db: Session, user_id: str, action_type: str, item_id: str = None, container_id: str = None, details: dict = None):
+def create_log_entry(
+    db: Session,
+    user_id: str,
+    action_type: str,
+    item_id: str = None,
+    container_id: str = None,
+    details: dict = None
+):
     """
-    Helper function to create a log entry in the database.
+    Safely create a log entry with error handling to prevent API failure.
     """
-    log_entry = Log(
-        user_id=user_id,
-        action_type=action_type,
-        item_id=item_id,
-        container_id=container_id,
-        details=details
-    )
-    db.add(log_entry)
-    db.commit()  # Commit immediately or within the main route's transaction
-    return log_entry
+    try:
+        log_entry = Log(
+            user_id=user_id,
+            action_type=action_type,
+            item_id=item_id,
+            container_id=container_id,
+            details=details or {}  # Ensure it's always a dict
+        )
+        db.add(log_entry)
+        db.commit()
+        return log_entry
+    except Exception as e:
+        db.rollback()  # Very important for transactional integrity
+        logging.error(f"Failed to create log entry: {e}", exc_info=True)
+        # Do not raise here — avoid breaking the calling API route
+        return None
+
 
 # API: Item Search and Retrieval
 @app.get("/api/search", response_model=SearchResponse)
-def search_item(itemId: Optional[str] = Query(None), itemName: Optional[str] = Query(None), db: Session = Depends(get_db)):
+def search_item(
+    itemId: Optional[str] = Query(None),
+    itemName: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
     try:
-        found = False
-        item_info = {}
-        retrieval_steps = []
-
-        if itemId:
-            item = db.query(Item).filter(Item.itemId == itemId).first()
-        elif itemName:
-            item = db.query(Item).filter(Item.name == itemName).first()
-        else:
+        if not itemId and not itemName:
             raise HTTPException(status_code=400, detail="Either itemId or itemName must be provided")
 
-        if item:
-            found = True
-            item_info = {
-                "itemId": item.itemId,
-                "name": item.name,
-                "containerId": "contA",  #  Placeholder - You'll need real container logic
-                "zone": item.preferredZone,
-                "position": {  # Placeholder - You'll need real position logic
-                    "startCoordinates": {"width": 0, "depth": 0, "height": 0},
-                    "endCoordinates": {"width": item.width, "depth": item.depth, "height": item.height}
-                }
-            }
+        query = db.query(Item)
+        item = query.filter(Item.itemId == itemId).first() if itemId else query.filter(Item.name == itemName).first()
 
-            retrieval_steps = [
-                {"step": 1, "action": "retrieve", "itemId": item.itemId, "itemName": item.name}
-            ]
+        if not item:
+            return {
+                "success": True,
+                "found": False,
+                "item": None,
+                "retrievalSteps": []
+            }
 
         return {
             "success": True,
-            "found": found,
-            "item": item_info,
-            "retrievalSteps": retrieval_steps
+            "found": True,
+            "item": {
+                "itemId": item.itemId,
+                "name": item.name,
+                "containerId": "contA",  # Placeholder
+                "zone": item.preferredZone,
+                "position": {
+                    "startCoordinates": {"width": 0, "depth": 0, "height": 0},
+                    "endCoordinates": {"width": item.width, "depth": item.depth, "height": item.height}
+                }
+            },
+            "retrievalSteps": [
+                {"step": 1, "action": "retrieve", "itemId": item.itemId, "itemName": item.name}
+            ]
         }
+
+    except HTTPException as e:
+        raise e  # Keep standard FastAPI behavior for expected errors
     except Exception as e:
-        logging.error(f"Error searching item: {e}")
-        raise
+        logging.error(f"Error searching item: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # API: Retrieve Item
@@ -485,13 +611,15 @@ def retrieve_item(req: RetrieveRequest, db: Session = Depends(get_db)):
         if not item:
             raise HTTPException(status_code=404, detail=f"Item with ID {req.itemId} not found")
 
-        #  1. Update usageLimit (if applicable)
-        if item.usageLimit > 0:
+        # 1. Update usageLimit if applicable and not None
+        if item.usageLimit is not None and item.usageLimit > 0:
             item.usageLimit -= 1
             db.commit()
-            logging.info(f"  Usage limit decremented for item {req.itemId}")
+            logging.info(f"Usage limit decremented for item {req.itemId}. New usageLimit: {item.usageLimit}")
+        else:
+            logging.info(f"No usage limit update needed for item {req.itemId} (usageLimit={item.usageLimit})")
 
-        #  2. Create a log entry
+        # 2. Create a log entry
         create_log_entry(
             db,
             user_id=req.userId,
@@ -499,9 +627,10 @@ def retrieve_item(req: RetrieveRequest, db: Session = Depends(get_db)):
             item_id=req.itemId,
             details={"timestamp": req.timestamp}
         )
-        logging.info(f"  Log entry created for item {req.itemId} retrieval")
+        logging.info(f"Log entry created for item {req.itemId} retrieval")
 
         return {"success": True}
+
     except HTTPException as e:
         db.rollback()
         raise e
@@ -518,11 +647,16 @@ def identify_waste_items(db: Session = Depends(get_db)):
         today = datetime.now().date()
         waste_items = []
         items = db.query(Item).all()
+
         for item in items:
             reason = None
+
+            # Handle expiry date
             if item.expiryDate and item.expiryDate < today:
                 reason = "Expired"
-            elif item.usageLimit == 0:
+
+            # Handle usage limit only if not None
+            elif item.usageLimit is not None and item.usageLimit == 0:
                 reason = "Out of Uses"
 
             if reason:
@@ -531,9 +665,13 @@ def identify_waste_items(db: Session = Depends(get_db)):
                     "name": item.name,
                     "reason": reason,
                     "containerId": "contA",  # Placeholder
-                    "position": {  # Placeholder
+                    "position": {
                         "startCoordinates": {"width": 0, "depth": 0, "height": 0},
-                        "endCoordinates": {"width": item.width, "depth": item.depth, "height": item.height}
+                        "endCoordinates": {
+                            "width": item.width,
+                            "depth": item.depth,
+                            "height": item.height
+                        }
                     }
                 })
 
@@ -541,9 +679,10 @@ def identify_waste_items(db: Session = Depends(get_db)):
             "success": True,
             "wasteItems": waste_items
         }
+
     except Exception as e:
-        logging.error(f"Error identifying waste: {e}")
-        raise
+        logging.error(f"Error identifying waste: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to identify waste items")
 
 
 # API: Generate Waste Return Plan
@@ -560,21 +699,30 @@ def generate_waste_return_plan(req: WasteReturnPlanRequest, db: Session = Depend
             "totalWeight": 0
         }
 
-        # Convert undockingDate string to a datetime.date object
-        undocking_date = datetime.strptime(req.undockingDate, "%Y-%m-%d").date()
+        # Safely parse undocking date
+        try:
+            undocking_date = datetime.strptime(req.undockingDate, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-        # Fetch only expired items directly from the database
-        expired_items = db.query(Item).filter(Item.expiryDate != None, Item.expiryDate < undocking_date).all()
+        # Filter items with a valid expiry date that is before the undocking date
+        expired_items = db.query(Item).filter(
+            Item.expiryDate.isnot(None),
+            Item.expiryDate < undocking_date
+        ).all()
 
         for item in expired_items:
+            volume = (item.width or 0) * (item.depth or 0) * (item.height or 0)
+            weight = item.mass or 0
+
             return_manifest["returnItems"].append({
                 "itemId": item.itemId,
                 "name": item.name,
                 "expiryDate": item.expiryDate.strftime("%Y-%m-%d"),
-                "containerId": req.undockingContainerId  # Placeholder
+                "containerId": req.undockingContainerId  # Still placeholder
             })
-            return_manifest["totalVolume"] += item.width * item.depth * item.height
-            return_manifest["totalWeight"] += item.mass
+            return_manifest["totalVolume"] += volume
+            return_manifest["totalWeight"] += weight
 
         return {
             "success": True,
@@ -582,21 +730,35 @@ def generate_waste_return_plan(req: WasteReturnPlanRequest, db: Session = Depend
             "retrievalSteps": retrieval_steps,
             "returnManifest": return_manifest
         }
+
+    except HTTPException:
+        raise  # re-raise known HTTP exceptions
     except Exception as e:
-        logging.error(f"Error generating return plan: {e}")
-        raise
+        logging.error(f"Error generating return plan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate waste return plan")
 
 
 # API: Complete Waste Undocking
 @app.post("/api/waste/complete-undocking", response_model=ApiResponse)
 def complete_undocking(req: CompleteUndockingRequest, db: Session = Depends(get_db)):
     try:
-        #  Implement undocking completion logic here (e.g., update database, create logs)
-        #  For now, it returns a placeholder value
-        return {"success": True, "itemsRemoved": 5}  # Placeholder
-    except Exception as e:
-        logging.error(f"Error completing undocking: {e}")
+        # Basic validation
+        if not req.undockingContainerId or not req.timestamp:
+            raise HTTPException(status_code=400, detail="Both container ID and timestamp are required.")
+
+        # Placeholder logic - assume 5 items removed
+        removed_count = 5  # Replace with real count once logic is implemented
+
+        # Optional logging
+        logging.info(f"Undocking completed for container {req.undockingContainerId} at {req.timestamp}, items removed: {removed_count}")
+
+        return {"success": True}  # Ensure only fields defined in ApiResponse are returned
+
+    except HTTPException:
         raise
+    except Exception as e:
+        logging.error(f"Error completing undocking: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to complete undocking")
 
 
 # API: Simulate Time
@@ -702,30 +864,33 @@ def import_containers(file: UploadFile = File(...), db: Session = Depends(get_db
 
         for row in reader:
             try:
-                container_data = {}
-                container_data["containerId"] = row["containerId"]
-                container_data["zone"] = row["zone"]
-                container_data["width"] = int(row["width"])
-                container_data["depth"] = int(row["depth"])
-                container_data["height"] = int(row["height"])
+                container_data = {
+                    "containerId": row.get("containerId", "").strip(),
+                    "zone": row.get("zone", "").strip(),
+                    "width": int(row["width"]) if row.get("width") else 0,
+                    "depth": int(row["depth"]) if row.get("depth") else 0,
+                    "height": int(row["height"]) if row.get("height") else 0
+                }
 
                 container = ContainerSchema(**container_data)
                 db_container = Container(**container.dict())
                 db.add(db_container)
                 db.commit()
                 containers_imported += 1
-            except (ValueError, KeyError) as e:
+
+            except (ValueError, KeyError, Exception) as e:
+                db.rollback()
                 errors.append({"row": row, "message": str(e)})
 
-        return {
-            "success": True,
-            "containersImported": containers_imported,
-            "errors": errors
-        }
-    except Exception as e:
-        logging.error(f"Error importing containers: {e}")
-        raise
+        return ImportResponse(
+            success=True,
+            itemsImported=containers_imported,  # Reuse `itemsImported` for compatibility
+            errors=errors
+        )
 
+    except Exception as e:
+        logging.error(f"Error importing containers: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to import containers")
 
 # API: Export Current Arrangement to CSV
 @app.get("/api/export/arrangement")
@@ -733,24 +898,30 @@ def export_arrangement(db: Session = Depends(get_db)):
     try:
         rows = [["ItemID", "ContainerID", "Start Coordinates", "End Coordinates"]]  # Header row
 
-        for item in db.query(Item).all():
-            placement = db.query(ItemPlacement).filter(ItemPlacement.item_id == item.id).first()
-            if placement:
-                container = db.query(Container).filter(Container.id == placement.container_id).first()
-                rows.append([
-                    item.itemId,
-                    container.containerId if container else "N/A",
-                    str(placement.start_coordinates),
-                    str(placement.end_coordinates)
-                ])
-            else:
-                rows.append([item.itemId, "N/A", "N/A", "N/A"])
+        items = db.query(Item).all()
+        for item in items:
+            try:
+                placement = db.query(ItemPlacement).filter(ItemPlacement.item_id == item.id).first()
+                if placement:
+                    container = db.query(Container).filter(Container.id == placement.container_id).first()
+                    rows.append([
+                        item.itemId or "N/A",
+                        container.containerId if container else "N/A",
+                        str(placement.start_coordinates) if placement.start_coordinates else "N/A",
+                        str(placement.end_coordinates) if placement.end_coordinates else "N/A"
+                    ])
+                else:
+                    rows.append([item.itemId or "N/A", "N/A", "N/A", "N/A"])
+            except Exception as inner_err:
+                logging.warning(f"Skipping item {item.itemId} due to error: {inner_err}")
+                rows.append([item.itemId or "N/A", "Error", "Error", "Error"])
 
-        output = "\n".join([",".join(row) for row in rows])
+        output = "\n".join([",".join(map(str, row)) for row in rows])
         return Response(output, media_type="text/csv", headers={"Content-Disposition": "attachment;filename=arrangement.csv"})
+
     except Exception as e:
         logging.error(f"Error exporting arrangement: {e}", exc_info=True)
-        raise
+        raise HTTPException(status_code=500, detail="Failed to export arrangement")
 
 # API: Get Logs
 @app.get("/api/logs")
@@ -764,12 +935,21 @@ def get_logs(
 ):
     try:
         query = db.query(Log)
+
         if startDate:
-            start_date = datetime.strptime(startDate, "%Y-%m-%d").date()
-            query = query.filter(Log.timestamp >= start_date)
+            try:
+                start_date = datetime.strptime(startDate, "%Y-%m-%d").date()
+                query = query.filter(Log.timestamp >= start_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid startDate format. Use YYYY-MM-DD.")
+
         if endDate:
-            end_date = datetime.strptime(endDate, "%Y-%m-%d").date()
-            query = query.filter(Log.timestamp <= end_date)
+            try:
+                end_date = datetime.strptime(endDate, "%Y-%m-%d").date()
+                query = query.filter(Log.timestamp <= end_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid endDate format. Use YYYY-MM-DD.")
+
         if itemId:
             query = query.filter(Log.item_id == itemId)
         if userId:
@@ -777,11 +957,14 @@ def get_logs(
         if actionType:
             query = query.filter(Log.action_type == actionType)
 
-        logs: List[Log] = query.all()
+        logs = query.all()
         return {"logs": logs}
+
+    except HTTPException:
+        raise  # Re-raise HTTPExceptions as-is
     except Exception as e:
         logging.error(f"Error getting logs: {e}", exc_info=True)
-        raise
+        raise HTTPException(status_code=500, detail="Failed to retrieve logs")
 
 # ✅ Test Route
 @app.get("/")
