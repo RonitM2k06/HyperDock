@@ -81,4 +81,6 @@ docker run -p 8000:8000 rm2k06/space-cargo-manager
 
 ---
 
-**Note:** if your add items doesn't work, dont worry ! reload the page 1-2 times. It will work !
+## Known Issues
+
+- Minor frontend synchronization delays may occasionally require a page refresh during item insertion operations.
