@@ -75,6 +75,16 @@ docker run -p 8000:8000 rm2k06/space-cargo-manager
 
 ---
 
+## Future Improvements
+
+- AI-based cargo optimization
+- Real-time orbital logistics simulation
+- Autonomous docking assistance
+- Multi-user cargo synchronization
+- Predictive inventory management
+
+---
+
 ## **Contributors**  
 👨‍💻 **Ronit Mongia** – Lead Developer  
 👨‍💻 **Rhythm Shokeen** – System Architect  
